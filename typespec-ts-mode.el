@@ -137,7 +137,24 @@
           base: (identifier) @font-lock-type-face
           member: (identifier) @font-lock-type-face)]))))))
 
+;;; Indent
+(defcustom typespec-ts-mode-indent-offset 2
+  "Number of spaces for each indentation step."
+  :type 'integer
+  :safe 'integerp
+  :group 'typespec)
+
+(defvar typespec-ts-mode--indent-rules
+  '((typespec
+     ((parent-is "source_file") parent 0)
+     ((node-is "}") parent-bol 0)
+     ((node-is "]") parent-bol 0)
+     ((node-is ")") parent-bol 0)
+     (no-node parent-bol typespec-ts-mode-indent-offset)
+     (catch-all parent-bol typespec-ts-mode-indent-offset))))
+
 (defun typespec-ts-mode--defun-name (node)
+  "Find name of NODE."
   (treesit-node-text (treesit-node-child-by-field-name node "name")))
 
 ;;;###autoload
@@ -158,6 +175,10 @@
   ;; Font Lock
   (setq-local treesit-font-lock-feature-list typespec-ts-mode--font-lock-feature-list
               treesit-font-lock-settings typespec-ts-mode--font-lock-settings)
+
+  ;; Indent
+  (setq-local treesit-simple-indent-rules typespec-ts-mode--indent-rules)
+  (setq-local electric-indent-chars (append "{}" electric-indent-chars))
 
   ;; imenu
   (setq-local treesit-defun-name-function #'typespec-ts-mode--defun-name)
