@@ -72,9 +72,9 @@
      (enum_statement name: (identifier) @font-lock-type-face)
      (interface_statement name: (identifier) @font-lock-type-face)
      (model_statement name: (identifier) @font-lock-type-face)
+     (operation_statement name: (identifier) @font-lock-function-name-face)
      (scalar_statement name: (identifier) @font-lock-type-face)
-     (union_statement name: (identifier) @font-lock-type-face)
-     (operation_statement name: (identifier) @font-lock-function-name-face))
+     (union_statement name: (identifier) @font-lock-type-face))
 
    :language 'typespec
    :feature 'delimiter
@@ -137,6 +137,9 @@
           base: (identifier) @font-lock-type-face
           member: (identifier) @font-lock-type-face)]))))))
 
+(defun typespec-ts-mode--defun-name (node)
+  (treesit-node-text (treesit-node-child-by-field-name node "name")))
+
 ;;;###autoload
 (define-derived-mode typespec-ts-mode prog-mode "TypeSpec"
   "Major mode for editing TypeSpec files."
@@ -152,8 +155,20 @@
               comment-end ""
               comment-start-skip (rx "//" (* (syntax whitespace))))
 
+  ;; Font Lock
   (setq-local treesit-font-lock-feature-list typespec-ts-mode--font-lock-feature-list
               treesit-font-lock-settings typespec-ts-mode--font-lock-settings)
+
+  ;; imenu
+  (setq-local treesit-defun-name-function #'typespec-ts-mode--defun-name)
+  (setq-local treesit-simple-imenu-settings
+              `(("Alias" "\\`alias_statement\\'")
+                ("Enum" "\\`enum_statement\\'")
+                ("Interface" "\\`interface_statement\\'")
+                ("Model" "\\`model_statement\\'")
+                ("Operation" "\\`operation_statement\\'")
+                ("Scalar" "\\`scalar_statement\\'")
+                ("Union" "\\`union_statement\\'")))
 
   (treesit-major-mode-setup))
 
