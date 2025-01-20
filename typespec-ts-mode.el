@@ -4,7 +4,7 @@
 ;;
 ;; Author: Pradyuman Vig <me@pmn.co>
 ;; Created: 19 January 2025
-;; Modified: 19 January 2025
+;; Modified: 20 January 2025
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: languages tree-sitter typespec
@@ -27,14 +27,115 @@
 
 ;;; Font lock
 (defvar typespec-ts-mode--font-lock-feature-list
-  '((comment)))
+  '((comment definition)
+    (keyword string type)
+    (constant decorator directive namespace)
+    (bracket delimiter property)))
 
 (defvar typespec-ts-mode--font-lock-settings
   (treesit-font-lock-rules
    :language 'typespec
+   :feature 'bracket
+   '(["(" ")" "[" "]" "{" "}"] @font-lock-bracket-face)
+
+   :language 'typespec
    :feature 'comment
    '((single_line_comment) @font-lock-comment-face
-     (multi_line_comment) @font-lock-comment-face)))
+     (multi_line_comment) @font-lock-comment-face)
+
+   :language 'typespec
+   :feature 'constant
+   '([(decimal_literal) (hex_integer_literal) (binary_integer_literal)
+      "true" "false" "null"] @font-lock-constant-face)
+
+   :language 'typespec
+   :feature 'decorator
+   '((decorator
+      "@" @font-lock-builtin-face
+      name: (identifier_or_member_expression
+             [(identifier) @font-lock-builtin-face
+              (member_expression
+               base: (identifier) @font-lock-builtin-face
+               member: (identifier) @font-lock-builtin-face)]))
+     (augment_decorator_statement
+      "@@" @font-lock-builtin-face
+      name: (identifier_or_member_expression
+             [(identifier) @font-lock-builtin-face
+              (member_expression
+               base: (identifier) @font-lock-builtin-face
+               member: (identifier) @font-lock-builtin-face)])))
+
+   :language 'typespec
+   :feature 'definition
+   '((builtin_type) @font-lock-type-face
+     (alias_statement name: (identifier) @font-lock-type-face)
+     (enum_statement name: (identifier) @font-lock-type-face)
+     (interface_statement name: (identifier) @font-lock-type-face)
+     (model_statement name: (identifier) @font-lock-type-face)
+     (scalar_statement name: (identifier) @font-lock-type-face)
+     (union_statement name: (identifier) @font-lock-type-face)
+     (operation_statement name: (identifier) @font-lock-function-name-face))
+
+   :language 'typespec
+   :feature 'delimiter
+   '(["<" ">"] @font-lock-delimiter-face)
+
+   :language 'typespec
+   :feature 'directive
+   '((directive
+      "#" @font-lock-warning-face
+      (identifier_or_member_expression
+       [(identifier) @font-lock-warning-face
+        (member_expression
+         base: (identifier) @font-lock-warning-face
+         member: (identifier) @font-lock-warning-face)])))
+
+   :language 'typespec
+   :feature 'escape
+   '((escape_sequence) @font-lock-escape-face)
+
+   :language 'typespec
+   :feature 'keyword
+   ;; https://github.com/microsoft/typespec/blob/main/packages/spec/src/spec.emu.html#L34
+   '(["import" "model" "namespace" "op" "extends" "using" "interface" "union"
+      "dec" "fn" "void" "never" "unknown" "alias" "enum" "scalar" "is"
+      (decorator_modifiers) (function_modifiers)] @font-lock-keyword-face)
+
+   :language 'typespec
+   :feature 'namespace
+   '((namespace_statement
+      name: (identifier_or_member_expression
+             [(identifier) @font-lock-function-name-face
+              (member_expression
+               base: (identifier) @font-lock-function-name-face
+               member: (identifier) @font-lock-function-name-face)]))
+     (using_statement
+      module: (identifier_or_member_expression
+               [(identifier) @font-lock-function-name-face
+                (member_expression
+                 base: (identifier) @font-lock-function-name-face
+                 member: (identifier) @font-lock-function-name-face)])))
+
+   :language 'typespec
+   :feature 'property
+   '((enum_member name: [(identifier) @font-lock-property-name-face])
+     (model_property name: [(identifier) @font-lock-property-name-face])
+     (union_variant name: (identifier) @font-lock-property-name-face))
+
+   :language 'typespec
+   :feature 'string
+   '((quoted_string_literal) @font-lock-string-face
+     (triple_quoted_string_literal) @font-lock-string-face)
+
+   :language 'typespec
+   :feature 'type
+   '((template_parameter name: (identifier) @font-lock-type-face)
+     (reference_expression
+      ((identifier_or_member_expression
+        [(identifier) @font-lock-type-face
+         (member_expression
+          base: (identifier) @font-lock-type-face
+          member: (identifier) @font-lock-type-face)]))))))
 
 ;;;###autoload
 (define-derived-mode typespec-ts-mode prog-mode "TypeSpec"
@@ -46,15 +147,13 @@
 
   (treesit-parser-create 'typespec)
 
-  ;; ;; Comments
+  ;; Comments
   (setq-local comment-start "//"
               comment-end ""
               comment-start-skip (rx "//" (* (syntax whitespace))))
 
   (setq-local treesit-font-lock-feature-list typespec-ts-mode--font-lock-feature-list
               treesit-font-lock-settings typespec-ts-mode--font-lock-settings)
-
-  (font-lock-mode 1)
 
   (treesit-major-mode-setup))
 
