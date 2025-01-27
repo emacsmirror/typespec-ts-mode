@@ -1,10 +1,10 @@
-;;; typespec-ts-mode.el --- Emacs major mode for TypeSpec (using tree-sitter) -*- lexical-binding: t; -*-
+;;; typespec-ts-mode.el --- Major mode for TypeSpec (using tree-sitter) -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2025 Pradyuman Vig
 ;;
 ;; Author: Pradyuman Vig <me@pmn.co>
 ;; Created: 19 January 2025
-;; Modified: 20 January 2025
+;; Modified: 27 January 2025
 ;; Version: 0.1
 ;; Package-Requires: ((emacs "29.1"))
 ;; Keywords: languages tree-sitter typespec

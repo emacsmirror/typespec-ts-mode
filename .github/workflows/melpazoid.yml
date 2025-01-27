@@ -22,4 +22,5 @@ jobs:
       env:
         LOCAL_REPO: ${{ github.workspace }}
         RECIPE: (typespec-ts-mode :fetcher github :repo "pradyuman/typespec-ts-mode")
+        EXIST_OK: true
       run: echo $GITHUB_REF && make -C ~/melpazoid
