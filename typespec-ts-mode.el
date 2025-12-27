@@ -22,6 +22,7 @@
 ;;; Code:
 
 (require 'treesit)
+(require 'c-ts-common)
 (eval-when-compile (require 'cl-lib))
 (eval-when-compile (require 'rx))
 
@@ -98,7 +99,7 @@
    :feature 'keyword
    ;; https://github.com/microsoft/typespec/blob/main/packages/spec/src/spec.emu.html#L34
    '(["import" "model" "namespace" "op" "extends" "using" "interface" "union"
-      "dec" "fn" "void" "never" "unknown" "alias" "enum" "scalar" "is"
+      "dec" "fn" "void" "never" "unknown" "alias" "enum" "scalar" "is" "const"
       (decorator_modifiers) (function_modifiers)] @font-lock-keyword-face)
 
    :language 'typespec
@@ -144,14 +145,54 @@
   :safe 'integerp
   :group 'typespec)
 
+(defun typespec-ts-mode--multi-line-string-indent (n parent bol &rest rest)
+  "Return the indent for the current multi-line string line.
+
+This is either the current indentation or the indentation of the closing triple
+quotes, whichever is greater.
+"
+  (let ((node (treesit-node-at (point))))
+    (when (and node (string= (treesit-node-type node) "triple_quoted_string_fragment"))
+      (let ((minimum-identation (save-excursion
+                                  (goto-char (treesit-node-end node))
+                                  (current-indentation))))
+
+        (max minimum-identation bol)))))
+
+(defvar typespec-ts-mode--syntax-table
+  (let ((table (make-syntax-table)))
+    (modify-syntax-entry ?_ "_" table)
+    (modify-syntax-entry ?= "." table)
+    (modify-syntax-entry ?& "." table)
+    (modify-syntax-entry ?| "." table)
+    (modify-syntax-entry ?` "\"" table)
+    ;; comments like c-mode(s)
+    (modify-syntax-entry ?/ ". 124b" table)
+    (modify-syntax-entry ?* ". 23" table)
+    (modify-syntax-entry ?\n "> b" table)
+    (modify-syntax-entry ?\^m "> b" table)
+    table)
+  "Syntax table for `typespec-ts-mode'.")
+
 (defvar typespec-ts-mode--indent-rules
   '((typespec
      ((parent-is "source_file") parent 0)
      ((node-is "}") parent-bol 0)
      ((node-is "]") parent-bol 0)
      ((node-is ")") parent-bol 0)
-     (no-node parent-bol typespec-ts-mode-indent-offset)
-     (catch-all parent-bol typespec-ts-mode-indent-offset))))
+     ((and (parent-is "multi_line_comment") c-ts-common-looking-at-star) c-ts-common-comment-start-after-first-star -1)
+     ((parent-is "single_line_comment") prev-adaptive-prefix 0)
+     ((parent-is "multi_line_comment") prev-adaptive-prefix 0)
+     ((parent-is "union_body") parent-bol typespec-ts-mode-indent-offset)
+     ((parent-is "operation_arguments") parent-bol typespec-ts-mode-indent-offset)
+     ((parent-is "enum_body") parent-bol typespec-ts-mode-indent-offset)
+     ((parent-is "model_body") parent-bol 0)
+     ((parent-is "model_expression") parent-bol typespec-ts-mode-indent-offset)
+     ((parent-is "object_value") parent-bol typespec-ts-mode-indent-offset)
+     ((parent-is "value_list") parent-bol 0)
+     ((parent-is "string_fragment") nix-ts-indent-multiline-string 0)
+     ((parent-is "triple_quoted_string_fragment") typespec-ts-mode--multi-line-string-indent 0)
+     ((parent-is "interface_body") parent-bol typespec-ts-mode-indent-offset))))
 
 (defun typespec-ts-mode--defun-name (node)
   "Find name of NODE."
@@ -161,6 +202,7 @@
 (define-derived-mode typespec-ts-mode prog-mode "TypeSpec"
   "Major mode for editing TypeSpec files."
   :group 'typespec
+  :syntax-table typespec-ts-mode--syntax-table
 
   (unless (treesit-available-p)
     (error "Tree-sitter is not available"))
@@ -168,9 +210,7 @@
   (treesit-parser-create 'typespec)
 
   ;; Comments
-  (setq-local comment-start "//"
-              comment-end ""
-              comment-start-skip (rx "//" (* (syntax whitespace))))
+  (c-ts-common-comment-setup)
 
   ;; Font Lock
   (setq-local treesit-font-lock-feature-list typespec-ts-mode--font-lock-feature-list
@@ -181,6 +221,16 @@
   (setq-local electric-indent-chars (append "{}" electric-indent-chars))
 
   ;; imenu
+  (setq-local treesit-defun-type-regexp (regexp-opt
+                                         '("alias_statement"
+                                           "const_statement"
+                                           "enum_statement"
+                                           "interface_statement"
+                                           "namespace_statement"
+                                           "operation_statement"
+                                           "scalar_statement"
+                                           "union_statement"
+                                           "model_statement")))
   (setq-local treesit-defun-name-function #'typespec-ts-mode--defun-name)
   (setq-local treesit-simple-imenu-settings
               `(("Alias" "\\`alias_statement\\'")
